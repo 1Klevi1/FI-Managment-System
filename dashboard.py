@@ -1,5 +1,4 @@
 import tkinter as tk
-from tkinter import ttk
 from PIL import Image, ImageTk, ImageDraw
 import os
 import sys
@@ -115,4 +114,4 @@ class MainDashboard:
         report_label = tk.Label(report_window, text="Generate your vehicle reports here.",
                                 font=("Segoe UI", 14), bg="#2E2E2E", fg="#666")
         report_label.pack(pady=20)
-# pyinstaller --onefile --windowed --add-data "logo1.png;." --add-data "db.txt;." main.py
+# pyinstaller --onefile --windowed --add-data "logo1.png;." --add-data "fleet.db;." main.py

@@ -1,83 +1,121 @@
-# File path for fleet data
-FLEET_FILE_PATH = 'db.txt'
+import sqlite3
+from tkinter import messagebox
+
+DB_FILE = "fleet.db"
+
+# Initialize DB (if it doesn't exist)
+def initialize_database():
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS fleet (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                make TEXT NOT NULL,
+                model TEXT NOT NULL,
+                year TEXT NOT NULL,
+                license_plate TEXT NOT NULL,
+                status TEXT NOT NULL
+            )
+        ''')
+        conn.commit()
 
 
-# Function to read fleet data from notes.txt
+# Read all vehicles
 def read_fleet_data():
-    fleet_data = []
-    try:
-        with open(FLEET_FILE_PATH, 'r') as file:
-            for line in file:
-                if line.strip():  # Ignore empty lines
-                    vehicle = line.strip().split(", ")
-                    fleet_data.append(vehicle)
-    except FileNotFoundError:
-        print("Fleet data file not found, starting with an empty fleet.")
-    except Exception as e:
-        print(f"An error occurred while reading the file: {e}")
-    return fleet_data
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM fleet")
+        return cursor.fetchall()
 
 
-# Function to write fleet data to notes.txt
-def write_fleet_data(fleet_data):
-    try:
-        with open(FLEET_FILE_PATH, 'w') as file:
-            for vehicle in fleet_data:
-                file.write(", ".join(vehicle) + "\n")
-    except Exception as e:
-        print(f"An error occurred while writing to the file: {e}")
+# Add new vehicle
+def add_vehicle(vehicle_data):
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO fleet (make, model, year, license_plate, status)
+            VALUES (?, ?, ?, ?, ?)
+        ''', vehicle_data)
+        conn.commit()
 
+def reset_autoincrement():
+    conn = sqlite3.connect("fleet.db")
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM sqlite_sequence WHERE name='fleet'")
+    conn.commit()
+    conn.close()
 
-# Function to delete a vehicle from the fleet and db.txt using the vehicle ID
-def delete_vehicle(vehicle_id):
-    fleet_data = read_fleet_data()
-
-    # Find and remove the vehicle with the given ID
-    fleet_data = [vehicle for vehicle in fleet_data if vehicle[0] != vehicle_id]
-
-    # Write the updated fleet data back to the file
-    write_fleet_data(fleet_data)
-    print(f"Vehicle with ID {vehicle_id} deleted.")
-
-
-# Function to update a vehicle's data in db.txt using the vehicle ID
+# Update existing vehicle
 def update_vehicle(vehicle_id, new_data):
-    fleet_data = read_fleet_data()
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE fleet
+            SET make=?, model=?, year=?, license_plate=?, status=?
+            WHERE id=?
+        ''', (
+            new_data['Make'], new_data['Model'], new_data['Year'],
+            new_data['LicensePlate'], new_data['Status'], vehicle_id
+        ))
+        conn.commit()
 
-    # Find and update the vehicle with the given ID
-    for vehicle in fleet_data:
-        if vehicle[0] == vehicle_id:
-            vehicle[1:] = [new_data['Make'], new_data['Model'], new_data['Year'], new_data['LicensePlate'],
-                           new_data['Status']]
-            break
-    else:
-        print(f"Vehicle with ID {vehicle_id} not found.")
+def get_vehicle_by_id(vehicle_id):
+    conn = sqlite3.connect("fleet.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM fleet WHERE id = ?", (vehicle_id,))
+    vehicle = cursor.fetchone()
+    conn.close()
+    return vehicle
+
+# Delete vehicle by ID
+def delete_vehicle(vehicle_id):
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM fleet WHERE id=?", (vehicle_id,))
+        conn.commit()
+
+
+def save_vehicle_to_db(dialog, input_fields, vehicle_id, management_window):
+
+    data = {field: input_fields[field].get().strip() for field in input_fields}
+
+    # Basic validation
+    if not all(data.values()):
+        messagebox.showwarning("Missing Fields", "Please fill out all fields.")
         return
 
-    # Write the updated fleet data back to the file
-    write_fleet_data(fleet_data)
-    print(f"Vehicle with ID {vehicle_id} updated.")
+    if vehicle_id:  # Editing existing
+        update_vehicle(vehicle_id, data)
+        messagebox.showinfo("Success", "Vehicle updated successfully.")
 
+    else:  # Adding new
+        vehicle = [data['Make'], data['Model'], data['Year'], data['LicensePlate'], data['Status']]
+        print("Adding vehicle:", vehicle)  # Debugging line to see the vehicle data
+        add_vehicle(vehicle)
+        messagebox.showinfo("Success", "Vehicle added successfully.")
 
-# Function to add a new vehicle to the fleet and notes.txt
-def add_vehicle(vehicle):
-    fleet_data = read_fleet_data()
+    dialog.destroy()
+    refresh_treeview(management_window.treeview_management)
 
-    # Auto-increment the ID by adding 1 to the current maximum ID
-    vehicle_id = str(len(fleet_data) + 1)
-    fleet_data.append([vehicle_id] + vehicle)
+def fetch_all_vehicles():
+    conn = sqlite3.connect("fleet.db")
+    cursor = conn.cursor()
 
-    # Write the updated fleet data back to the file
-    write_fleet_data(fleet_data)
-    print(f"Vehicle with ID {vehicle_id} added.")
+    cursor.execute("SELECT * FROM fleet")
+    rows = cursor.fetchall()
 
-def refresh_treeview(management_window):
-    """Refresh the treeview to reflect the latest fleet data."""
-    # Clear the existing data in the Treeview
-    for item in management_window.treeview_management.get_children():
-        management_window.treeview_management.delete(item)
+    conn.close()
+    return rows
 
-    # Insert updated fleet data into the Treeview
-    fleet_data = read_fleet_data()
+def refresh_treeview(treeview):
+    """Refresh the Treeview by fetching all vehicles and updating the display."""
+    # Clear current items
+    for item in treeview.get_children():
+        treeview.delete(item)
+
+    # Fetch the latest fleet data from the database
+    fleet_data = fetch_all_vehicles()
+
+    # Insert the updated data into the Treeview
     for vehicle in fleet_data:
-        management_window.treeview_management.insert("", "end", values=vehicle)
+        treeview.insert("", "end", values=vehicle)

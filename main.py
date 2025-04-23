@@ -1,5 +1,6 @@
 import tkinter as tk
-from dashboard import MainDashboard  # Import the MainDashboard class from dashboard.py
+from dashboard import MainDashboard
+from fleet_operations import initialize_database
 
 
 def main():
@@ -8,4 +9,6 @@ def main():
     root.mainloop()
 
 if __name__ == "__main__":
+    initialize_database()
     main()
+
