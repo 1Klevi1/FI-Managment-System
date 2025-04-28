@@ -11,6 +11,6 @@ def main():
 if __name__ == "__main__":
     initialize_database()
     # Specify the path to your CSV file here
-    # import_dataset_to_db('Excel/importData.csv')
+    import_dataset_to_db('Excel/importData.csv')
     main()
 
