@@ -126,6 +126,14 @@ def edit_vehicle_by_id(treeview):
     vehicle_id_entry.pack(pady=10)
 
     def on_submit():
+        # Check if the form was already created and destroy it
+        if hasattr(edit_window, "fields_frame") and edit_window.fields_frame.winfo_exists():
+            edit_window.fields_frame.destroy()
+
+        # Destroy existing Save Changes button if it exists
+        if hasattr(edit_window, "save_button") and edit_window.save_button.winfo_exists():
+            edit_window.save_button.destroy()
+
         vehicle_id = vehicle_id_entry.get()
         if not vehicle_id:
             messagebox.showwarning("Invalid ID", "Please enter a valid vehicle ID.")
@@ -144,7 +152,8 @@ def edit_vehicle_by_id(treeview):
             messagebox.showwarning("Data Incomplete", "The vehicle data is incomplete. Please check the database.")
             return
 
-        fields_frame = tk.Frame(edit_window, bg="#F5F5F5")
+        edit_window.fields_frame = tk.Frame(edit_window, bg="#F5F5F5")
+        fields_frame = edit_window.fields_frame
         fields_frame.pack(pady=10)
 
         fields = [
@@ -178,8 +187,9 @@ def edit_vehicle_by_id(treeview):
             refresh_treeview(treeview)
             edit_window.destroy()
 
-        tk.Button(edit_window, text="Save Changes", font=("Segoe UI", 12, "bold"),
-                  bg="#4A90E2", fg="white", relief="flat", width=20, command=save_changes).pack(pady=20)
+        edit_window.save_button = tk.Button(edit_window, text="Save Changes", font=("Segoe UI", 12, "bold"),
+                                            bg="#4A90E2", fg="white", relief="flat", width=20, command=save_changes)
+        edit_window.save_button.pack(pady=20)
 
     tk.Button(edit_window, text="Submit", font=("Segoe UI", 12, "bold"), bg="#50E3C2",
               fg="white", relief="flat", width=20, command=on_submit).pack(pady=20)
@@ -300,39 +310,3 @@ def open_add_edit_vehicle_dialog(management_window, editing=False, vehicle=None)
     cancel_button.grid(row=0, column=1, padx=10)
 
 
-def save_vehicle(dialog, input_fields, vehicle, management_window):
-    """Save the vehicle data (add or edit) to the database and refresh the treeview."""
-    new_vehicle_data = {key: entry.get() for key, entry in input_fields.items()}
-    if vehicle:  # Editing existing vehicle
-        # Update vehicle with new data
-        update_vehicle(vehicle[0], new_vehicle_data)  # vehicle[0] is the vehicle ID
-        messagebox.showinfo("Success", "Vehicle updated successfully.")
-    else:  # Adding new vehicle
-        # Add a new vehicle to the database
-        add_vehicle([
-            new_vehicle_data['plate_nr'],
-            new_vehicle_data['driver'],
-            new_vehicle_data['site'],
-            new_vehicle_data['make'],
-            new_vehicle_data['mot_due'],
-            new_vehicle_data['tax_due'],
-            new_vehicle_data['shell_account'],
-            new_vehicle_data['esso_account'],
-            new_vehicle_data['ulez_compliant'],
-            new_vehicle_data['congestion_charge'],
-            new_vehicle_data['dart_charge'],
-            new_vehicle_data['mileage'],
-            new_vehicle_data['no_track'],
-            new_vehicle_data['due_for_cambelt'],
-            new_vehicle_data['quartix'],
-            new_vehicle_data['divide_by_sites'],
-            new_vehicle_data['private'],
-            new_vehicle_data['side_notes']
-        ])
-        messagebox.showinfo("Success", "Vehicle added successfully.")
-
-    # Refresh the treeview to reflect the updated data
-    refresh_treeview(management_window)
-
-    # Close the dialog
-    dialog.destroy()

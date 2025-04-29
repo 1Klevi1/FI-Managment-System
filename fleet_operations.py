@@ -4,6 +4,27 @@ import pandas as pd
 
 DB_FILE = "fleet.db"
 
+field_mapping = {
+    'PLATE NR': 'plate_nr',
+    'DRIVER': 'driver',
+    'SITE': 'site',
+    'MAKE': 'make',
+    'MOT DUE': 'mot_due',
+    'TAX DUE': 'tax_due',
+    'SHELL': 'shell_account',
+    'ESSO': 'esso_account',
+    'ULEZ': 'ulez_compliant',
+    'CONGEST': 'congestion_charge',
+    'DART': 'dart_charge',
+    'MILEAGE': 'mileage',
+    'NO TRACK': 'no_track',
+    'DUE FOR CAMBELT': 'due_for_cambelt',
+    'QUARTIX': 'quartix',
+    'DIVIDE BY SITES': 'divide_by_sites',
+    'PRIVATE': 'private',
+    'SIDE NOTES': 'side_notes'
+}
+
 def initialize_database():
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
@@ -111,38 +132,33 @@ def reset_autoincrement():
             conn.commit()
 
 def update_vehicle(vehicle_id, new_data):
+    print("new_data:   ",new_data)
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
 
-        # Prepare dynamic SET clause based on provided fields in new_data
         set_clause = []
         values = []
 
-        # Check if any fields are provided in new_data
+        # Skip if no data
         if not new_data:
-            print("No fields provided to update.")
             return
-
         for key, value in new_data.items():
-            set_clause.append(f"{key}=?")
-            values.append(value)
-
+            if key == 'ID':
+                continue  # Do not update the ID
+            db_field = field_mapping.get(key)
+            print("db_field: ",db_field)
+            if db_field:
+                set_clause.append(f'"{db_field}"=?')
+                values.append(value)
+        print("set_clause: ", set_clause)
         set_clause_str = ", ".join(set_clause)
-        values.append(vehicle_id)  # Add vehicle_id for the WHERE clause
-
-        # Build the final query
+        values.append(vehicle_id)  # WHERE clause
         query = f"UPDATE fleet SET {set_clause_str} WHERE id=?"
-
-        # Debugging: Print the query and values to check the correctness
-        print(f"Query: {query}")
-        print(f"Values: {tuple(values)}")
-
+        print("set_clause_str: ", set_clause_str)
+        print("query: ", query)
         try:
-            # Execute the query with dynamic values
             cursor.execute(query, tuple(values))
             conn.commit()
-
-            # Check if any rows were affected
             if cursor.rowcount == 0:
                 print(f"No rows were updated for vehicle ID {vehicle_id}.")
             else:
@@ -191,30 +207,12 @@ def save_vehicle_to_db(dialog, input_fields, vehicle_id, management_window):
         messagebox.showwarning("Missing Fields", "Please fill out required fields: Plate Nr and Make.")
         return
 
-    field_mapping = {
-        'PLATE NR': 'plate_nr',
-        'DRIVER': 'driver',
-        'SITE': 'site',
-        'MAKE': 'make',
-        'MOT DUE': 'mot_due',
-        'TAX DUE': 'tax_due',
-        'SHELL': 'shell_account',
-        'ESSO': 'esso_account',
-        'ULEZ': 'ulez_compliant',
-        'CONGEST': 'congestion_charge',
-        'DART': 'dart_charge',
-        'MILEAGE': 'mileage',
-        'NO TRACK': 'no_track',
-        'DUE FOR CAMBELT': 'due_for_cambelt',
-        'QUARTIX': 'quartix',
-        'DIVIDE BY SITES': 'divide_by_sites',
-        'PRIVATE': 'private',
-        'SIDE NOTES': 'side_notes'
-    }
-
     if vehicle_id:  # Editing existing
-        translated_data = {field_mapping.get(k, k): (parse_mileage(v) if k == 'MILEAGE' else v) for k, v in data.items()}
-        print(f"Updating vehicle ID {vehicle_id} with data: {translated_data}")
+        translated_data = {
+            k: parse_mileage(v) if k.strip().upper() == 'MILEAGE' else v
+            for k, v in data.items()
+        }
+        # print(f"Updating vehicle ID {vehicle_id} with data: {translated_data}")
         update_vehicle(vehicle_id, translated_data)
         messagebox.showinfo("Success", "Vehicle updated successfully.")
     else:  # Adding new vehicle
@@ -245,7 +243,10 @@ def save_vehicle_to_db(dialog, input_fields, vehicle_id, management_window):
 
         empty_id = find_empty_vehicle_id()
         if empty_id:
-            translated_data = {field_mapping.get(k, k): (parse_mileage(v) if k == 'MILEAGE' else v) for k, v in data.items()}
+            translated_data = {
+                k: parse_mileage(v) if k.strip().upper() == 'MILEAGE' else v
+                for k, v in data.items()
+            }
             print(f"translated data: {translated_data}")
 
             update_vehicle(empty_id, translated_data)
